@@ -88,19 +88,31 @@ func main() {
 	}
 	command := strings.Join(os.Args[1:], " ")
 
+	systemPrompt := []string{
+		"You are a CLI completion tool from the UNIX man pages and you show all possible subcommands and flags as key value pairs,",
+		"where the key is the subcommand/flag and the value is the description. The commands should be available on the",
+		runtime.GOOS,
+		"operating system.",
+		"Please respond using JSON.",
+	}
+
+	if commandManPage, err := exec.Command("man", os.Args[1]).Output(); err == nil {
+		fullDesc := []string{
+			"The manual pages for the",
+			os.Args[1],
+			"command is",
+			string(commandManPage),
+		}
+		systemPrompt = append(systemPrompt, fullDesc...)
+	}
+
 	genResp := ""
 	if genErr := ollamaClient.Generate(
 		ctx,
 		&api.GenerateRequest{
-			Model: ollamaModel,
-			System: strings.Join([]string{
-				"You are a CLI completion tool from the UNIX man pages and you show all possible subcommands and flags as key value pairs,",
-				"where the key is the subcommand/flag and the value is the description. The commands should be available on the",
-				runtime.GOOS,
-				"operating system.",
-				"Please respond using JSON",
-			}, " "),
-			Prompt: command,
+			Model:  ollamaModel,
+			System: strings.Join(systemPrompt, " "),
+			Prompt: "Please complete the following command: " + command,
 			Format: "json",
 		},
 		func(resp api.GenerateResponse) error {
